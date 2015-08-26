@@ -46,9 +46,7 @@ object Parser extends StandardTokenParsers {
         | NotExpr
     )
 
-    operand ~ "or" ~ chainl1( operand, "or" ^^^ Or) ^^ {
-      case a ~ _ ~ b => Or(a, b)
-    }
+    chainl1( operand, "or" ^^^ Or)
   }
 
   def AndExpr: Parser[Term] = {
@@ -60,9 +58,7 @@ object Parser extends StandardTokenParsers {
         | NotExpr
     )
 
-    operand ~ "and" ~ chainl1( operand, "and" ^^^ And) ^^ {
-      case a ~ _ ~ b => And(a, b)
-    }
+    chainl1( operand, "and" ^^^ And)
   }
 
   def NotExpr: Parser[Term] = "!"~> (
@@ -83,7 +79,6 @@ object Parser extends StandardTokenParsers {
   }
 
   def main(args: Array[String]): Unit = {
-    // val input = StreamReader(new java.io.InputStreamReader(System.in))
     val input = java.lang.System.console().readLine()
 
     parseString(input) match {
