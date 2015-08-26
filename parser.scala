@@ -17,14 +17,21 @@ object Parser extends StandardTokenParsers {
   lexical.reserved ++= List("true", "false", "and", "or")
   lexical.delimiters ++= List("!", "(", ")")
 
-  /** Expr ::=
-    | 'true'
-    | 'false'
-    | ident
-    | Expr 'and' Expr
-    | Expr 'or' Expr
-    | '!'Expr
-    | '(' Expr ')'
+  /** precedence: not > and > or
+    *
+    * associativity:
+    *      not : right
+    *      and : left
+    *      or  : left
+    *
+    * Expr ::=
+    *   | 'true'
+    *   | 'false'
+    *   | ident
+    *   | Expr 'and' Expr
+    *   | Expr 'or' Expr
+    *   | '!'Expr
+    *   | '(' Expr ')'
     */
   def Expr: Parser[Term] = (
         OrExpr
@@ -78,7 +85,38 @@ object Parser extends StandardTokenParsers {
     parse(StreamReader(new StringReader(string)))
   }
 
+  def demo = {
+    def test( expr: String) = {
+      println("\ninput: " + expr)
+      parseString(expr) match {
+        case Success(tree, _) =>
+          println("output: " + tree)
+        case failure @ NoSuccess(_, _) =>
+          println(failure)
+      }
+    }
+
+    test("true")
+    test("false")
+    test("a")
+    test("a or b")
+    test("a and b")
+    test("!a")
+    test("a or b or c")
+    test("a or b and c")
+    test("a and b or a and c")
+    test("!a or !b")
+    test("a or (b or c)")
+    test("a and b and c")
+    test("a and b or c")
+    test("a and (b and c)")
+    test("!a and !b")
+  }
+
   def main(args: Array[String]): Unit = {
+    demo
+
+    println("\ninput a test expression:")
     val input = java.lang.System.console().readLine()
 
     parseString(input) match {
