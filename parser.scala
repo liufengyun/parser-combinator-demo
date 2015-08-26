@@ -1,62 +1,81 @@
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.input._
 import java.io.StringReader
-
 import scala.util.parsing.input.Positional
 
 /** Abstract Syntax Trees for terms. */
 abstract class Term extends Positional
 
-/** Expr ::= 'true'
-    | 'false'
-    | 'if' Expr 'then' Expr 'else' Expr
-    | '0'
-    | 'succ' Expr
-    | 'pred' Expr
-    | 'iszero' Expr
-  */
-
-
-//   ... To complete ...
 case object True extends Term
 case object False extends Term
-case object Zero extends Term
-case class IsZero(t: Term) extends Term
-case class Pred(t: Term) extends Term
-case class Succ(t: Term) extends Term
-case class If(pred: Term, opt: Term, other: Term) extends Term
+case class Var(id: String) extends Term
+case class Or(t1: Term, t2: Term) extends Term
+case class And(t1: Term, t2: Term) extends Term
+case class Not(t: Term) extends Term
 
 object Parser extends StandardTokenParsers {
-  lexical.reserved ++= List("true", "false", "0", "if", "then", "else", "succ", "pred", "iszero")
+  lexical.reserved ++= List("true", "false", "and", "or")
+  lexical.delimiters ++= List("!", "(", ")")
 
-  import lexical.NumericLit
-
-  def numericLitSugar(n: Int): Term = if (n == 0) Zero else Succ(numericLitSugar(n - 1))
-
-    /** Expr ::= 'true'
-      | 'false'
-      | 'if' Expr 'then' Expr 'else' Expr
-      | '0'
-      | 'succ' Expr
-      | 'pred' Expr
-      | 'iszero' Expr
-      */
+  /** Expr ::=
+    | 'true'
+    | 'false'
+    | ident
+    | Expr 'and' Expr
+    | Expr 'or' Expr
+    | '!'Expr
+    | '(' Expr ')'
+    */
   def Expr: Parser[Term] = (
-    //   ... To complete ...
-    "true" ^^^ True
+        OrExpr
+      | AndExpr
+      | "(" ~> Expr <~ ")"
+      | "true" ^^^ True
       | "false" ^^^ False
-      | "zero" ^^^ Zero
-      | numericLit ^^ (n => numericLitSugar(n.toInt))
-      | "if" ~ Expr ~ "then" ~ Expr ~ "else" ~ Expr ^^ { case "if" ~ pred ~ "then" ~ opt ~ "else" ~ other => If(pred, opt, other) }
-      | "iszero" ~> Expr ^^ (IsZero(_))
-      | "succ" ~> Expr ^^ (Succ(_))
-      | "pred" ~> Expr ^^ (Pred(_))
+      | ident ^^ Var
+      | NotExpr
       | failure("illegal start of expression"))
+
+  def OrExpr: Parser[Term] = {
+    val operand = (
+          AndExpr
+        | "(" ~> Expr <~ ")"
+        | "true" ^^^ True
+        | "false" ^^^ False
+        | ident ^^ Var
+        | NotExpr
+    )
+
+    operand ~ "or" ~ chainl1( operand, "or" ^^^ Or) ^^ {
+      case a ~ _ ~ b => Or(a, b)
+    }
+  }
+
+  def AndExpr: Parser[Term] = {
+    val operand = (
+          "("~> Expr <~ ")"
+        | "true" ^^^ True
+        | "false" ^^^ False
+        | ident ^^ Var
+        | NotExpr
+    )
+
+    operand ~ "and" ~ chainl1( operand, "and" ^^^ And) ^^ {
+      case a ~ _ ~ b => And(a, b)
+    }
+  }
+
+  def NotExpr: Parser[Term] = "!"~> (
+      "("~> Expr <~ ")"
+    | "true" ^^^ True
+    | "false" ^^^ False
+    | ident ^^ Var
+    | NotExpr
+  )^^Not
 
   def parse(input: Reader[Char]) = {
     val tokens = new lexical.Scanner(input)
     phrase(Expr)(tokens)
-
   }
 
   def parseString(string: String) = {
